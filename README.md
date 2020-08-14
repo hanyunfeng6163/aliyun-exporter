@@ -57,7 +57,7 @@ For more details, see [Docker Compose](#docker-compose).
 Python 3.5+ is required.
 
 ```bash
-pip3 install aliyun-exporter
+pip3 install aliyun-exporter-czb
 ```
 
 ## Usage

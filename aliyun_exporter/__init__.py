@@ -49,4 +49,3 @@ def main():
             time.sleep(5)
     except KeyboardInterrupt:
         pass
-

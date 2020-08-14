@@ -138,7 +138,11 @@ class AliyunCollector(object):
                 yield from self.metric_generator(project, metric)
         if self.info_metrics != None:
             for resource in self.info_metrics:
-                yield self.info_provider.get_metrics(resource)
+                t_metrice = self.info_provider.get_metrics(resource)
+                if t_metrice == None:
+                    continue
+                else:
+                    yield t_metrice
         for v in self.special_collectors.values():
             yield from v.collect()
 

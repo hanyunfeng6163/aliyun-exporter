@@ -6,12 +6,12 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='aliyun-exporter',
+    name='aliyun-exporter-czb',
     version='0.3.1',
     description='Alibaba Cloud CloudMonitor Prometheus exporter',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/aylei/aliyun-exporter',
+    url='https://github.com/hanyunfeng6163/aliyun-exporter',
     author='Aylei Wu',
     author_email='rayingecho@gmail.com',
     license='Apache 2.0',
