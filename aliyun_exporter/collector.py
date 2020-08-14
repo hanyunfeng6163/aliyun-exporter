@@ -29,6 +29,7 @@ class CollectorConfig(object):
                  credential=None,
                  metrics=None,
                  info_metrics=None,
+                 do_info_region=None,
                  ):
         # if metrics is None:
         # raise Exception('Metrics config must be set.')
@@ -37,11 +38,13 @@ class CollectorConfig(object):
         self.metrics = metrics
         self.rate_limit = rate_limit
         self.info_metrics = info_metrics
+        self.do_info_region = do_info_region
 
         # ENV
         access_id = os.environ.get('ALIYUN_ACCESS_ID')
         access_secret = os.environ.get('ALIYUN_ACCESS_SECRET')
         region = os.environ.get('ALIYUN_REGION')
+
         if self.credential is None:
             self.credential = {}
         if access_id is not None and len(access_id) > 0:
@@ -56,15 +59,16 @@ class CollectorConfig(object):
 
 class AliyunCollector(object):
     def __init__(self, config: CollectorConfig):
+        self.config = config
         self.metrics = config.metrics
         self.info_metrics = config.info_metrics
         self.client = AcsClient(
             ak=config.credential['access_key_id'],
             secret=config.credential['access_key_secret'],
-            region_id=config.credential['region_id']
+            # region_id=config.credential['region_id'] #在获取监控指标metrics时貌似不需要region
         )
         self.rateLimiter = RateLimiter(max_calls=config.rate_limit)
-        self.info_provider = InfoProvider(self.client)
+        self.info_provider = InfoProvider()
         self.special_collectors = dict()
         for k, v in special_projects.items():
             if k in self.metrics:
@@ -138,11 +142,29 @@ class AliyunCollector(object):
                 yield from self.metric_generator(project, metric)
         if self.info_metrics != None:
             for resource in self.info_metrics:
-                t_metrice = self.info_provider.get_metrics(resource)
-                if t_metrice == None:
-                    continue
+                if self.config.do_info_region == None:
+                    client = AcsClient(
+                        ak=self.config.credential['access_key_id'],
+                        secret=self.config.credential['access_key_secret'],
+                        region_id=self.config.credential['region_id']
+                    )
+                    t_metrice = self.info_provider.get_metrics(resource, client)
+                    if t_metrice == None:
+                        continue
+                    else:
+                        yield t_metrice
                 else:
-                    yield t_metrice
+                    for a_region in self.config.do_info_region:
+                        client = AcsClient(
+                            ak=self.config.credential['access_key_id'],
+                            secret=self.config.credential['access_key_secret'],
+                            region_id=a_region
+                        )
+                        t_metrice = self.info_provider.get_metrics(resource, client)
+                        if t_metrice == None:
+                            continue
+                        else:
+                            yield t_metrice
         for v in self.special_collectors.values():
             yield from v.collect()
 
@@ -160,10 +182,29 @@ class RDSPerformanceCollector:
         self.parent = delegate
 
     def collect(self):
-        for id in [s.labels['DBInstanceId'] for s in self.parent.info_provider.get_metrics('rds').samples]:
-            metrics = self.query_rds_performance_metrics(id)
-            for metric in metrics:
-                yield from self.parse_rds_performance(id, metric)
+        if self.parent.config.do_info_region == None:
+            client = AcsClient(
+                ak=self.parent.config.credential['access_key_id'],
+                secret=self.parent.config.credential['access_key_secret'],
+                region_id=self.parent.config.credential['region_id']
+            )
+            for id in [s.labels['DBInstanceId'] for s in self.parent.info_provider.get_metrics('rds', client).samples]:
+                metrics = self.query_rds_performance_metrics(id)
+                for metric in metrics:
+                    yield from self.parse_rds_performance(id, metric)
+
+        else:
+            for a_region in self.parent.config.do_info_region:
+                client = AcsClient(
+                    ak=self.parent.config.credential['access_key_id'],
+                    secret=self.parent.config.credential['access_key_secret'],
+                    region_id=a_region
+                )
+                for id in [s.labels['DBInstanceId'] for s in self.parent.info_provider.get_metrics('rds', client).samples]:
+                    metrics = self.query_rds_performance_metrics(id)
+                    for metric in metrics:
+                        yield from self.parse_rds_performance(id, metric)
+
 
     def parse_rds_performance(self, id, value):
         value_format: str = value['ValueFormat']

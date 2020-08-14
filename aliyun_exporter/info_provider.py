@@ -29,11 +29,12 @@ attribute is not handled explicitly, it will be dropped.
 '''
 class InfoProvider():
 
-    def __init__(self, client: AcsClient):
-        self.client = client
+    def __init__(self):
+        self.client = None
 
     @cached(cache)
-    def get_metrics(self, resource: str) -> GaugeMetricFamily:
+    def get_metrics(self, resource: str, client: AcsClient) -> GaugeMetricFamily:
+        self.client = client
         return {
             'ecs': lambda : self.ecs_info(),
             'rds': lambda : self.rds_info(),

@@ -17,3 +17,7 @@ info_metrics:
   - slb
   - mongodb
   - polardb
+
+do_info_region:
+  - "cn-zhangjiakou"
+  - "cn-beijing"
