@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from prometheus_client import Summary
 from prometheus_client.core import GaugeMetricFamily, REGISTRY
 from aliyunsdkcore.client import AcsClient
-from aliyunsdkcms.request.v20180308 import QueryMetricLastRequest
+# from aliyunsdkcms.request.v20190101 import QueryMetricLastRequest
+from aliyunsdkcms.request.v20190101 import DescribeMetricLastRequest
 from aliyunsdkrds.request.v20140815 import DescribeDBInstancePerformanceRequest
 from ratelimiter import RateLimiter
 
@@ -16,11 +17,13 @@ from aliyun_exporter.utils import try_or_else
 
 rds_performance = 'rds_performance'
 special_projects = {
-    rds_performance: lambda collector : RDSPerformanceCollector(collector),
+    rds_performance: lambda collector: RDSPerformanceCollector(collector),
 }
 
 requestSummary = Summary('cloudmonitor_request_latency_seconds', 'CloudMonitor request latency', ['project'])
-requestFailedSummary = Summary('cloudmonitor_failed_request_latency_seconds', 'CloudMonitor failed request latency', ['project'])
+requestFailedSummary = Summary('cloudmonitor_failed_request_latency_seconds', 'CloudMonitor failed request latency',
+                               ['project'])
+
 
 class CollectorConfig(object):
     def __init__(self,
@@ -57,6 +60,7 @@ class CollectorConfig(object):
                 self.credential['access_key_secret'] is None:
             raise Exception('Credential is not fully configured.')
 
+
 class AliyunCollector(object):
     def __init__(self, config: CollectorConfig):
         self.config = config
@@ -68,19 +72,25 @@ class AliyunCollector(object):
             # region_id=config.credential['region_id'] #在获取监控指标metrics时貌似不需要region
         )
         self.rateLimiter = RateLimiter(max_calls=config.rate_limit)
-        self.info_provider = InfoProvider()
+        self.info_provider = InfoProvider(ak=config.credential['access_key_id'],
+                                          secret=config.credential['access_key_secret'],
+                                          region_id=config.credential['region_id'])
         self.special_collectors = dict()
         for k, v in special_projects.items():
             if k in self.metrics:
                 self.special_collectors[k] = v(self)
 
-
     def query_metric(self, project: str, metric: str, period: int):
         with self.rateLimiter:
-            req = QueryMetricLastRequest.QueryMetricLastRequest()
-            req.set_Project(project)
-            req.set_Metric(metric)
+            # req = QueryMetricLastRequest.QueryMetricLastRequest()
+            # req.set_Project(project)
+            # req.set_Metric(metric)
+            # req.set_Period(period)
+            req = DescribeMetricLastRequest.DescribeMetricLastRequest()
+            req.set_Namespace(project)
+            req.set_MetricName(metric)
             req.set_Period(period)
+
             start_time = time.time()
             try:
                 resp = self.client.do_action_with_exception(req)
@@ -95,8 +105,10 @@ class AliyunCollector(object):
             points = json.loads(data['Datapoints'])
             return points
         else:
-            logging.error('Error query metrics for {}_{}, the response body don not have Datapoints field, please check you permission or workload' .format(project, metric))
-            return points
+            logging.error(
+                'Error query metrics for {}_{}, the response body don not have Datapoints field, please check you permission or workload'.format(
+                    project, metric))
+            return None
 
     def parse_label_keys(self, point):
         return [k for k in point if k not in ['timestamp', 'Maximum', 'Minimum', 'Average']]
@@ -169,7 +181,6 @@ class AliyunCollector(object):
             yield from v.collect()
 
 
-
 def metric_up_gauge(resource: str, succeeded=True):
     metric_name = resource + '_up'
     description = 'Did the {} fetch succeed.'.format(resource)
@@ -200,11 +211,11 @@ class RDSPerformanceCollector:
                     secret=self.parent.config.credential['access_key_secret'],
                     region_id=a_region
                 )
-                for id in [s.labels['DBInstanceId'] for s in self.parent.info_provider.get_metrics('rds', client).samples]:
+                for id in [s.labels['DBInstanceId'] for s in
+                           self.parent.info_provider.get_metrics('rds', client).samples]:
                     metrics = self.query_rds_performance_metrics(id)
                     for metric in metrics:
                         yield from self.parse_rds_performance(id, metric)
-
 
     def parse_rds_performance(self, id, value):
         value_format: str = value['ValueFormat']

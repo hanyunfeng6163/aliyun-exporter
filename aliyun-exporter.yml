@@ -16,7 +16,8 @@ info_metrics:
   - redis
   - slb
   - mongodb
-  - polardb
+#  - polardb
+#  - oss
 
 do_info_region:
   - "cn-zhangjiakou"
