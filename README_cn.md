@@ -1,5 +1,9 @@
 # 阿里云 Exporter
 
+Note:
+ - This repository forked from https://github.com/aylei/aliyun-exporter
+ - 为了满足能链集团的需求
+
 ![license](https://img.shields.io/hexpm/l/plug.svg)
 [![help wanted](https://img.shields.io/github/issues/aylei/aliyun-exporter/help%20wanted.svg)](https://github.com/aylei/aliyun-exporter/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 [![pypi](https://img.shields.io/pypi/v/aliyun-exporter.svg)](https://pypi.org/project/aliyun-exporter/)
@@ -36,9 +40,9 @@ ALIYUN_ACCESS_ID=YOUR_ACCESS_ID ALIYUN_ACCESS_SECRET=YOUR_ACCESS_KEY docker-comp
 更多的配置项请见 [Docker Compose](#docker-compose)
 
 ## 安装
-
+Python 3.7+ is required.
 ```bash
-pip3 install aliyun-exporter
+pip3 install aliyun-exporter-czb
 ```
 
 ## 使用
@@ -57,6 +61,12 @@ metrics:
   acs_mongodb:
   - name: CPUUtilization
     period: 300
+```
+如何是多个regionid想在一个metrics里呈现,可以配置下面的选项
+```yaml
+do_info_region:
+  - "cn-zhangjiakou"
+  - "cn-beijing"
 ```
 
 启动 Exporter

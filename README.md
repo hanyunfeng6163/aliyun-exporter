@@ -1,6 +1,9 @@
 # Prometheus Exporter for Alibaba Cloud
 
-# Note: This repository has been archived due to lacking of human power.
+Note:
+ - This repository forked from https://github.com/aylei/aliyun-exporter
+ - To meet newlink's needs
+
 
 ![license](https://img.shields.io/hexpm/l/plug.svg)
 [![help wanted](https://img.shields.io/github/issues/aylei/aliyun-exporter/help%20wanted.svg)](https://github.com/aylei/aliyun-exporter/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
@@ -54,7 +57,7 @@ For more details, see [Docker Compose](#docker-compose).
 
 ## Installation
 
-Python 3.5+ is required.
+Python 3.7+ is required.
 
 ```bash
 pip3 install aliyun-exporter-czb
@@ -76,6 +79,14 @@ metrics:
   acs_mongodb:
   - name: CPUUtilization
     period: 300
+```
+To display multiple regionids in one metric, you can configure the following options
+
+
+```yaml
+do_info_region:
+  - "cn-zhangjiakou"
+  - "cn-beijing"
 ```
 
 Run the exporter:
