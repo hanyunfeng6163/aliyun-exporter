@@ -16,10 +16,13 @@ info_metrics:
   - redis
   - slb
   - mongodb
+#  - elasticsearch
+#  - mq
 #  - polardb
 #  - oss
 #  - dts_migration
 #  - dts_subcription
+
 
 do_info_region:
   - "cn-zhangjiakou"

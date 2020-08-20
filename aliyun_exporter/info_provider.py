@@ -179,9 +179,6 @@ class InfoProvider():
             req.set_PageNumber(page_num)
             resp = self.client.do_action_with_exception(req)
             data = json.loads(resp)
-            print('---')
-            print(data)
-            print('---+')
             instances = to_list(data)
             for instance in instances:
                 yield instance
