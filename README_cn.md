@@ -12,6 +12,7 @@ Note:
 
 阿里云云监控的 Prometheus Exporter. 
 
+* 增加 oss/polardb/dts/mq/elasticsearch 数据源支持
 
 ## 截图
 

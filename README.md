@@ -24,12 +24,15 @@ Note:
 * [Scale and HA Setup](#scale-and-ha-setup)
 * [Contribute](#contribute)
 
+## features
 This Prometheus exporter collects metrics from the [CloudMonitor API](https://partners-intl.aliyun.com/help/doc-detail/51939.htm) of Alibaba Cloud. It can help you:
 
 * integrate CloudMonitor to your Monitoring System.
 * leverage the power of PromQL, Alertmanager and Grafana(see [Screenshots](#)).
 * analyze metrics however you want.
 * save money. Api invocation is far cheaper than other services provided by CloudMonitor.
+---
+* add oss/polardb/dts/mq/elasticsearch support
 
 This project also provides an out-of-box solution for full-stack monitoring of Alibaba Cloud, including dashboards, alerting and diagnosing.
 
