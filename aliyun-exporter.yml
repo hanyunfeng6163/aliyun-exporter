@@ -18,6 +18,8 @@ info_metrics:
   - mongodb
 #  - polardb
 #  - oss
+#  - dts_migration
+#  - dts_subcription
 
 do_info_region:
   - "cn-zhangjiakou"

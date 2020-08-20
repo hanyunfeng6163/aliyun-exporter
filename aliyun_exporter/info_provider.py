@@ -12,6 +12,9 @@ import aliyunsdkdds.request.v20151201.DescribeDBInstancesRequest as Mongodb
 import aliyunsdkpolardb.request.v20170801.DescribeDBClustersRequest as Polardb
 import oss2
 
+from aliyunsdkdts.request.v20200101 import DescribeMigrationJobsRequest
+from aliyunsdkdts.request.v20200101 import DescribeSubscriptionInstancesRequest
+
 from aliyun_exporter.utils import try_or_else
 
 cache = TTLCache(maxsize=100, ttl=3600)
@@ -48,7 +51,9 @@ class InfoProvider():
             'slb': lambda: self.slb_info(),
             'mongodb': lambda: self.mongodb_info(),
             'polardb': lambda: self.polardb_info(),
-            'oss': lambda: self.oss_info()
+            'oss': lambda: self.oss_info(),
+            'dts_migration': lambda: self.dts_migration_info(),
+            'dts_subcription': lambda: self.dts_subscription_info(),
         }[resource]()
 
     def ecs_info(self) -> GaugeMetricFamily:
@@ -107,6 +112,15 @@ class InfoProvider():
             gauge.add_metric(labels=self.label_values(instance_dict, label_keys, nested_handler), value=1.0)
         return gauge
 
+    def dts_migration_info(self) -> GaugeMetricFamily:
+        req = DescribeMigrationJobsRequest.DescribeMigrationJobsRequest()
+        return self.new_info_template(req, 'aliyun_meta_dts_migration_info',
+                                      to_list=lambda data: data['MigrationJobs']['MigrationJob'])
+
+    def dts_subscription_info(self) -> GaugeMetricFamily:
+        req = DescribeSubscriptionInstancesRequest.DescribeSubscriptionInstancesRequest()
+        return self.new_info_template(req, 'aliyun_meta_dts_subscription_info',
+                                      to_list=lambda data: data['SubscriptionInstances']['SubscriptionInstance'])
 
     '''
     Template method to retrieve resource information and transform to metric.
@@ -135,6 +149,56 @@ class InfoProvider():
             req.set_PageNumber(page_num)
             resp = self.client.do_action_with_exception(req)
             data = json.loads(resp)
+            instances = to_list(data)
+            for instance in instances:
+                yield instance
+            if len(instances) < page_size:
+                break
+            page_num += 1
+
+    def new_info_template(self,
+                          req,
+                          name,
+                          desc='',
+                          page_size=100,
+                          page_num=1,
+                          nested_handler=None,
+                          to_list=(lambda data: data['Instances']['Instance'])) -> GaugeMetricFamily:
+        """
+        为了适配新版本sdk
+        :param req:
+        :param name:
+        :param desc:
+        :param page_size:
+        :param page_num:
+        :param nested_handler:
+        :param to_list:
+        :return:
+        """
+        gauge = None
+        label_keys = None
+        for instance in self.new_pager_generator(req, page_size, page_num, to_list):
+            if gauge is None:
+                label_keys = self.label_keys(instance, nested_handler)
+                gauge = GaugeMetricFamily(name, desc, labels=label_keys)
+            gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
+        return gauge
+
+    def new_pager_generator(self, req, page_size, page_num, to_list):
+        """
+        为了适配新版本sdk
+        :param req:
+        :param page_size:
+        :param page_num:
+        :param to_list:
+        :return:
+        """
+        req.set_PageSize(page_size)
+        while True:
+            req.set_PageNum(page_num)
+            resp = self.client.do_action_with_exception(req)
+            data = json.loads(resp)
+            print(data)
             instances = to_list(data)
             for instance in instances:
                 yield instance
