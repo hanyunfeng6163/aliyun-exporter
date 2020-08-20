@@ -14,6 +14,9 @@ import oss2
 
 from aliyunsdkdts.request.v20200101 import DescribeMigrationJobsRequest
 from aliyunsdkdts.request.v20200101 import DescribeSubscriptionInstancesRequest
+from aliyunsdkons.request.v20190214 import OnsInstanceInServiceListRequest
+from aliyunsdkelasticsearch.request.v20170613 import ListInstanceRequest as ElasticSearch
+# from aliyunsdkvpc.request.v20160428 import DescribeEipAddressesRequest
 
 from aliyun_exporter.utils import try_or_else
 
@@ -54,6 +57,9 @@ class InfoProvider():
             'oss': lambda: self.oss_info(),
             'dts_migration': lambda: self.dts_migration_info(),
             'dts_subcription': lambda: self.dts_subscription_info(),
+            'mq': lambda: self.mq_info(),
+            'elasticsearch': lambda: self.elasticsearch_info(),
+            # 'eip': lambda: self.eip_info(),
         }[resource]()
 
     def ecs_info(self) -> GaugeMetricFamily:
@@ -122,6 +128,30 @@ class InfoProvider():
         return self.new_info_template(req, 'aliyun_meta_dts_subscription_info',
                                       to_list=lambda data: data['SubscriptionInstances']['SubscriptionInstance'])
 
+    def mq_info(self) -> GaugeMetricFamily:
+        req = OnsInstanceInServiceListRequest.OnsInstanceInServiceListRequest()
+        resp = self.client.do_action_with_exception(req)
+        data = json.loads(resp)
+        nested_handler = None
+        gauge = None
+        label_keys = None
+        for i in data['Data']['InstanceVO']:
+            if gauge == None:
+                label_keys = self.label_keys(i, nested_handler)
+                gauge = GaugeMetricFamily('aliyun_meta_mq_info', '', labels=label_keys)
+            gauge.add_metric(labels=self.label_values(i, label_keys, nested_handler), value=1.0)
+        return gauge
+
+    def elasticsearch_info(self) -> GaugeMetricFamily:
+        req = ElasticSearch.ListInstanceRequest()
+        return self.es_info_template(req, 'aliyun_meta_elasticsearch_info', to_list=lambda data: data['Result'])
+
+    # def eip_info(self) -> GaugeMetricFamily:
+    #     req = DescribeEipAddressesRequest.DescribeEipAddressesRequest()
+    #     return self.info_template(req, 'aliyun_meta_eip_info')
+
+
+
     '''
     Template method to retrieve resource information and transform to metric.
     '''
@@ -149,6 +179,9 @@ class InfoProvider():
             req.set_PageNumber(page_num)
             resp = self.client.do_action_with_exception(req)
             data = json.loads(resp)
+            print('---')
+            print(data)
+            print('---+')
             instances = to_list(data)
             for instance in instances:
                 yield instance
@@ -198,13 +231,62 @@ class InfoProvider():
             req.set_PageNum(page_num)
             resp = self.client.do_action_with_exception(req)
             data = json.loads(resp)
-            print(data)
             instances = to_list(data)
             for instance in instances:
                 yield instance
             if len(instances) < page_size:
                 break
             page_num += 1
+
+    def es_info_template(self,
+                          req,
+                          name,
+                          desc='',
+                          page_size=100,
+                          page_num=1,
+                          nested_handler=None,
+                          to_list=(lambda data: data['Instances']['Instance'])) -> GaugeMetricFamily:
+        """
+        为了适配新版本sdk
+        :param req:
+        :param name:
+        :param desc:
+        :param page_size:
+        :param page_num:
+        :param nested_handler:
+        :param to_list:
+        :return:
+        """
+        gauge = None
+        label_keys = None
+        for instance in self.es_pager_generator(req, page_size, page_num, to_list):
+            if gauge is None:
+                label_keys = self.label_keys(instance, nested_handler)
+                gauge = GaugeMetricFamily(name, desc, labels=label_keys)
+            gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
+        return gauge
+
+    def es_pager_generator(self, req, page_size, page_num, to_list):
+        """
+        为了适配新版本sdk
+        :param req:
+        :param page_size:
+        :param page_num:
+        :param to_list:
+        :return:
+        """
+        req.set_size(page_size)
+        while True:
+            req.set_page(page_num)
+            resp = self.client.do_action_with_exception(req)
+            data = json.loads(resp)
+            instances = to_list(data)
+            for instance in instances:
+                yield instance
+            if len(instances) < page_size:
+                break
+            page_num += 1
+
 
     def label_keys(self, instance, nested_handler=None):
         if nested_handler is None:

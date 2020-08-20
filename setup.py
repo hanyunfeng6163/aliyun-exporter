@@ -45,6 +45,9 @@ setup(
         "aliyun-python-sdk-polardb==1.7.2",
         "oss2==2.12.1",
         "aliyun-python-sdk-dts==5.0.34.19.3",
+        "aliyun-python-sdk-ons==3.1.5",
+        "aliyun-python-sdk-elasticsearch==3.0.17",
+        "aliyun-python-sdk-vpc==3.0.10",
     ],
     entry_points={
         'console_scripts': [
