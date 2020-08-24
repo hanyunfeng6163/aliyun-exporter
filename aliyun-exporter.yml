@@ -12,6 +12,7 @@ metrics:
   acs_dts:
     - name: SynchronizationLatency
   acs_oss:
+  #oss 需要配置measure，否则会报错average
   - name: UserNetworkErrorCount
     measure: UserNetworkErrorCount
     period: 60
@@ -31,6 +32,7 @@ info_metrics:
 #  - oss
 #  - dts_migration
 #  - dts_subcription
+#  - dts_synchroniza
 
 
 do_info_region:
