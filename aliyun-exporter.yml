@@ -9,6 +9,15 @@ metrics:
   acs_mongodb:
   - name: CPUUtilization
     period: 300
+  acs_dts:
+    - name: SynchronizationLatency
+  acs_oss:
+  - name: UserNetworkErrorCount
+    measure: UserNetworkErrorCount
+    period: 60
+  - name: GetObjectE2eLatency
+    measure: GetObjectE2eLatency
+    period: 60
 
 info_metrics:
   - ecs
