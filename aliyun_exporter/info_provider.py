@@ -12,7 +12,7 @@ import aliyunsdkdds.request.v20151201.DescribeDBInstancesRequest as Mongodb
 import aliyunsdkpolardb.request.v20170801.DescribeDBClustersRequest as Polardb
 import oss2
 
-from aliyunsdkdts.request.v20200101 import DescribeMigrationJobsRequest
+from aliyunsdkdts.request.v20200101 import DescribeMigrationJobsRequest, DescribeSynchronizationJobsRequest
 from aliyunsdkdts.request.v20200101 import DescribeSubscriptionInstancesRequest
 from aliyunsdkons.request.v20190214 import OnsInstanceInServiceListRequest
 from aliyunsdkelasticsearch.request.v20170613 import ListInstanceRequest as ElasticSearch
@@ -57,6 +57,7 @@ class InfoProvider():
             'oss': lambda: self.oss_info(),
             'dts_migration': lambda: self.dts_migration_info(),
             'dts_subcription': lambda: self.dts_subscription_info(),
+            'dts_synchroniza': lambda: self.dts_synchroniza_info(),
             'mq': lambda: self.mq_info(),
             'elasticsearch': lambda: self.elasticsearch_info(),
             # 'eip': lambda: self.eip_info(),
@@ -119,14 +120,31 @@ class InfoProvider():
         return gauge
 
     def dts_migration_info(self) -> GaugeMetricFamily:
+        """
+        数据迁移
+        :return:
+        """
         req = DescribeMigrationJobsRequest.DescribeMigrationJobsRequest()
         return self.new_info_template(req, 'aliyun_meta_dts_migration_info',
                                       to_list=lambda data: data['MigrationJobs']['MigrationJob'])
 
     def dts_subscription_info(self) -> GaugeMetricFamily:
+        """
+        数据订阅
+        :return:
+        """
         req = DescribeSubscriptionInstancesRequest.DescribeSubscriptionInstancesRequest()
         return self.new_info_template(req, 'aliyun_meta_dts_subscription_info',
                                       to_list=lambda data: data['SubscriptionInstances']['SubscriptionInstance'])
+
+    def dts_synchroniza_info(self) -> GaugeMetricFamily:
+        """
+        数据同步
+        :return:
+        """
+        req = DescribeSynchronizationJobsRequest.DescribeSynchronizationJobsRequest()
+        return self.new_info_template(req, 'aliyun_meta_dts_synchroniza_info',
+                                      to_list=lambda data: data['SynchronizationInstances'])
 
     def mq_info(self) -> GaugeMetricFamily:
         req = OnsInstanceInServiceListRequest.OnsInstanceInServiceListRequest()
@@ -226,7 +244,11 @@ class InfoProvider():
         req.set_PageSize(page_size)
         while True:
             req.set_PageNum(page_num)
-            resp = self.client.do_action_with_exception(req)
+            try:
+                resp = self.client.do_action_with_exception(req)
+            except Exception as e:
+                print("在请求对象{req}的时候，出现异常{e},已经进行跳过处理".format(req=req,e=e))
+                break
             data = json.loads(resp)
             instances = to_list(data)
             for instance in instances:
