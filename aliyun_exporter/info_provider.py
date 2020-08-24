@@ -20,7 +20,7 @@ from aliyunsdkelasticsearch.request.v20170613 import ListInstanceRequest as Elas
 
 from aliyun_exporter.utils import try_or_else
 
-cache = TTLCache(maxsize=100, ttl=3600)
+# cache = TTLCache(maxsize=100, ttl=3600) #临时关闭一小时的缓存
 
 '''
 InfoProvider provides the information of cloud resources as metric.
@@ -44,7 +44,7 @@ class InfoProvider():
         self.secret = secret
         self.region_id = region_id
 
-    @cached(cache)
+    # @cached(cache) #临时关闭一小时的缓存
     def get_metrics(self, resource: str, client: AcsClient) -> GaugeMetricFamily:
         self.client = client
         return {
