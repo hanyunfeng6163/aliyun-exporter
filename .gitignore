@@ -108,5 +108,5 @@ venv.bak/
 .mypy_cache/
 .idea/
 
-aliyun-exporter-test.yml
-czb.yml
+/aliyun-exporter-test.yml
+/czb.yml
