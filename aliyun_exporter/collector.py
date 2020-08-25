@@ -69,6 +69,9 @@ class AliyunCollector(object):
         self.client = AcsClient(
             ak=config.credential['access_key_id'],
             secret=config.credential['access_key_secret'],
+            timeout=10,
+            connect_timeout=10,
+            max_retry_time=2
             # region_id=config.credential['region_id'] #在获取监控指标metrics时貌似不需要region
         )
         self.rateLimiter = RateLimiter(max_calls=config.rate_limit)
@@ -95,9 +98,12 @@ class AliyunCollector(object):
             try:
                 resp = self.client.do_action_with_exception(req)
             except Exception as e:
-                logging.error('Error request cloud monitor api', exc_info=e)
-                requestFailedSummary.labels(project).observe(time.time() - start_time)
-                return []
+                try:
+                    resp = self.client.do_action_with_exception(req)
+                except Exception as e:
+                    logging.error('Error request cloud monitor api', exc_info=e)
+                    requestFailedSummary.labels(project).observe(time.time() - start_time)
+                    return []
             else:
                 requestSummary.labels(project).observe(time.time() - start_time)
         data = json.loads(resp)
@@ -136,6 +142,9 @@ class AliyunCollector(object):
             logging.error('Error query metrics for {}_{}'.format(project, metric_name), exc_info=e)
             yield metric_up_gauge(self.format_metric_name(project, name), False)
             return
+        if points is None:
+            yield metric_up_gauge(self.format_metric_name(project, name), False)
+            return
         if len(points) < 1:
             yield metric_up_gauge(self.format_metric_name(project, name), False)
             return
@@ -158,7 +167,10 @@ class AliyunCollector(object):
                     client = AcsClient(
                         ak=self.config.credential['access_key_id'],
                         secret=self.config.credential['access_key_secret'],
-                        region_id=self.config.credential['region_id']
+                        region_id=self.config.credential['region_id'],
+                        timeout=10,
+                        connect_timeout=10,
+                        max_retry_time=2,
                     )
                     t_metrice = self.info_provider.get_metrics(resource, client)
                     if t_metrice == None:
@@ -170,7 +182,10 @@ class AliyunCollector(object):
                         client = AcsClient(
                             ak=self.config.credential['access_key_id'],
                             secret=self.config.credential['access_key_secret'],
-                            region_id=a_region
+                            region_id=a_region,
+                            timeout=10,
+                            connect_timeout=10,
+                            max_retry_time=2,
                         )
                         t_metrice = self.info_provider.get_metrics(resource, client)
                         if t_metrice == None:
@@ -197,7 +212,10 @@ class RDSPerformanceCollector:
             client = AcsClient(
                 ak=self.parent.config.credential['access_key_id'],
                 secret=self.parent.config.credential['access_key_secret'],
-                region_id=self.parent.config.credential['region_id']
+                region_id=self.parent.config.credential['region_id'],
+                timeout=10,
+                connect_timeout=10,
+                max_retry_time=2,
             )
             for id in [s.labels['DBInstanceId'] for s in self.parent.info_provider.get_metrics('rds', client).samples]:
                 metrics = self.query_rds_performance_metrics(id)
@@ -209,7 +227,10 @@ class RDSPerformanceCollector:
                 client = AcsClient(
                     ak=self.parent.config.credential['access_key_id'],
                     secret=self.parent.config.credential['access_key_secret'],
-                    region_id=a_region
+                    region_id=a_region,
+                    timeout=10,
+                    connect_timeout=10,
+                    max_retry_time=2,
                 )
                 for id in [s.labels['DBInstanceId'] for s in
                            self.parent.info_provider.get_metrics('rds', client).samples]:
@@ -238,7 +259,7 @@ class RDSPerformanceCollector:
         req = DescribeDBInstancePerformanceRequest.DescribeDBInstancePerformanceRequest()
         req.set_DBInstanceId(id)
         req.set_Key(','.join([metric['name'] for metric in self.parent.metrics[rds_performance]]))
-        now = datetime.utcnow();
+        now = datetime.utcnow()
         now_str = now.replace(second=0, microsecond=0).strftime("%Y-%m-%dT%H:%MZ")
         one_minute_ago_str = (now - timedelta(minutes=1)).replace(second=0, microsecond=0).strftime("%Y-%m-%dT%H:%MZ")
         req.set_StartTime(one_minute_ago_str)

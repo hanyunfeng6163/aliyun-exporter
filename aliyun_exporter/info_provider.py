@@ -1,4 +1,5 @@
 import json
+from collections import Iterable
 
 from aliyunsdkcore.client import AcsClient
 from cachetools import cached, TTLCache
@@ -102,17 +103,36 @@ class InfoProvider():
         gauge = None
         label_keys = None
         for instance in oss2.BucketIterator(service):
-            bucket = oss2.Bucket(auth, 'http://oss-cn-beijing.aliyuncs.com', instance.name)
-            bucket_info = bucket.get_bucket_info()
-            instance_dict = {'name': bucket_info.name,
-                             'storage_class': bucket_info.storage_class,
-                             'creation_date': bucket_info.creation_date,
-                             'intranet_endpoint': bucket_info.intranet_endpoint,
-                             'extranet_endpoint': bucket_info.extranet_endpoint,
-                             'owner': bucket_info.owner.id,
-                             'grant': bucket_info.acl.grant,
-                             'data_redundancy_type': bucket_info.data_redundancy_type,
-                             }
+            try:
+                bucket = oss2.Bucket(auth, 'http://oss-cn-beijing.aliyuncs.com', instance.name, connect_timeout=10)
+                bucket_info = bucket.get_bucket_info()
+                instance_dict = {'name': bucket_info.name,
+                                 'storage_class': bucket_info.storage_class,
+                                 'creation_date': bucket_info.creation_date,
+                                 'intranet_endpoint': bucket_info.intranet_endpoint,
+                                 'extranet_endpoint': bucket_info.extranet_endpoint,
+                                 'owner': bucket_info.owner.id,
+                                 'grant': bucket_info.acl.grant,
+                                 'data_redundancy_type': bucket_info.data_redundancy_type,
+                                 }
+            except Exception as e:
+                try:
+                    print('connect timeout, now retry...')
+                    bucket = oss2.Bucket(auth, 'http://oss-cn-beijing.aliyuncs.com', instance.name, connect_timeout=10)
+                    bucket_info = bucket.get_bucket_info()
+                    instance_dict = {'name': bucket_info.name,
+                                     'storage_class': bucket_info.storage_class,
+                                     'creation_date': bucket_info.creation_date,
+                                     'intranet_endpoint': bucket_info.intranet_endpoint,
+                                     'extranet_endpoint': bucket_info.extranet_endpoint,
+                                     'owner': bucket_info.owner.id,
+                                     'grant': bucket_info.acl.grant,
+                                     'data_redundancy_type': bucket_info.data_redundancy_type,
+                                     }
+                except Exception as e:
+                    print('err key')
+                    print(e)
+                    continue
             if gauge == None:
                 label_keys = self.label_keys(instance_dict, nested_handler)
                 gauge = GaugeMetricFamily('aliyun_meta_oss_info', '', labels=label_keys)
@@ -184,18 +204,27 @@ class InfoProvider():
                       to_list=(lambda data: data['Instances']['Instance'])) -> GaugeMetricFamily:
         gauge = None
         label_keys = None
-        for instance in self.pager_generator(req, page_size, page_num, to_list):
-            if gauge is None:
-                label_keys = self.label_keys(instance, nested_handler)
-                gauge = GaugeMetricFamily(name, desc, labels=label_keys)
-            gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
+        pager_generator_result = self.pager_generator(req, page_size, page_num, to_list)
+        if isinstance(pager_generator_result, Iterable):
+            for instance in pager_generator_result:
+                if gauge is None:
+                    label_keys = self.label_keys(instance, nested_handler)
+                    gauge = GaugeMetricFamily(name, desc, labels=label_keys)
+                gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
         return gauge
 
     def pager_generator(self, req, page_size, page_num, to_list):
         req.set_PageSize(page_size)
         while True:
             req.set_PageNumber(page_num)
-            resp = self.client.do_action_with_exception(req)
+            try:
+                resp = self.client.do_action_with_exception(req)
+            except Exception as e:
+                print(e)
+                try:
+                    resp = self.client.do_action_with_exception(req)
+                except Exception as e:
+                    break
             data = json.loads(resp)
             instances = to_list(data)
             for instance in instances:
@@ -225,11 +254,13 @@ class InfoProvider():
         """
         gauge = None
         label_keys = None
-        for instance in self.new_pager_generator(req, page_size, page_num, to_list):
-            if gauge is None:
-                label_keys = self.label_keys(instance, nested_handler)
-                gauge = GaugeMetricFamily(name, desc, labels=label_keys)
-            gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
+        pager_generator_result = self.new_pager_generator(req, page_size, page_num, to_list)
+        if isinstance(pager_generator_result, Iterable):
+            for instance in pager_generator_result:
+                if gauge is None:
+                    label_keys = self.label_keys(instance, nested_handler)
+                    gauge = GaugeMetricFamily(name, desc, labels=label_keys)
+                gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
         return gauge
 
     def new_pager_generator(self, req, page_size, page_num, to_list):
@@ -247,8 +278,12 @@ class InfoProvider():
             try:
                 resp = self.client.do_action_with_exception(req)
             except Exception as e:
-                print("在请求对象{req}的时候，出现异常{e},已经进行跳过处理".format(req=req,e=e))
-                break
+                print(e)
+                try:
+                    resp = self.client.do_action_with_exception(req)
+                except Exception as e:
+                    print("在请求对象{req}的时候，出现异常{e},已经进行跳过处理".format(req=req, e=e))
+                    break
             data = json.loads(resp)
             instances = to_list(data)
             for instance in instances:
@@ -278,11 +313,13 @@ class InfoProvider():
         """
         gauge = None
         label_keys = None
-        for instance in self.es_pager_generator(req, page_size, page_num, to_list):
-            if gauge is None:
-                label_keys = self.label_keys(instance, nested_handler)
-                gauge = GaugeMetricFamily(name, desc, labels=label_keys)
-            gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
+        pager_generator_result = self.es_pager_generator(req, page_size, page_num, to_list)
+        if isinstance(pager_generator_result, Iterable):
+            for instance in pager_generator_result:
+                if gauge is None:
+                    label_keys = self.label_keys(instance, nested_handler)
+                    gauge = GaugeMetricFamily(name, desc, labels=label_keys)
+                gauge.add_metric(labels=self.label_values(instance, label_keys, nested_handler), value=1.0)
         return gauge
 
     def es_pager_generator(self, req, page_size, page_num, to_list):
@@ -297,7 +334,15 @@ class InfoProvider():
         req.set_size(page_size)
         while True:
             req.set_page(page_num)
-            resp = self.client.do_action_with_exception(req)
+            try:
+                resp = self.client.do_action_with_exception(req)
+            except Exception as e:
+                print(e)
+                try:
+                    resp = self.client.do_action_with_exception(req)
+                except Exception as e:
+                    print("在请求对象{req}的时候，出现异常{e},已经进行跳过处理".format(req=req, e=e))
+                    break
             data = json.loads(resp)
             instances = to_list(data)
             for instance in instances:
