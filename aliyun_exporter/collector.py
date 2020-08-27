@@ -109,7 +109,6 @@ class AliyunCollector(object):
                         logging.error("上次请求失败，正在进行第{}次请求".format(resp_count))
                         time.sleep(5)
                     resp = self.client.do_action_with_exception(req)
-                    print(resp)
                 except Exception as e:
                     logging.error('Error request cloud monitor api', exc_info=e)
                     resp_count += 1
