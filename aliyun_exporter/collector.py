@@ -95,18 +95,44 @@ class AliyunCollector(object):
             req.set_Period(period)
 
             start_time = time.time()
-            try:
-                resp = self.client.do_action_with_exception(req)
-            except Exception as e:
-                try:
-                    resp = self.client.do_action_with_exception(req)
-                except Exception as e:
-                    logging.error('Error request cloud monitor api', exc_info=e)
+
+            resp_result = True
+            resp_count = 1
+            resp = {}
+            while resp_result:
+                if resp_count > 20:
+                    logging.error("进行了{}次请求，终止".format(resp_count))
                     requestFailedSummary.labels(project).observe(time.time() - start_time)
                     return []
-            else:
-                requestSummary.labels(project).observe(time.time() - start_time)
+                try:
+                    if resp_count > 1:
+                        logging.error("上次请求失败，正在进行第{}次请求".format(resp_count))
+                        time.sleep(5)
+                    resp = self.client.do_action_with_exception(req)
+                    print(resp)
+                except Exception as e:
+                    logging.error('Error request cloud monitor api', exc_info=e)
+                    resp_count += 1
+                else:
+                    resp_result = False
+                    requestSummary.labels(project).observe(time.time() - start_time)
+
+
+            # try:
+            #     logging.info("开始请求{project} {metric}".format(project=project, metric=metric))
+            #     resp = self.client.do_action_with_exception(req)
+            # except Exception as e:
+            #     try:
+            #         logging.error('Error request cloud monitor api', exc_info=e)
+            #         resp = self.client.do_action_with_exception(req)
+            #     except Exception as e:
+            #         logging.error('Error request cloud monitor api', exc_info=e)
+            #         requestFailedSummary.labels(project).observe(time.time() - start_time)
+            #         return []
+            # else:
+            #     requestSummary.labels(project).observe(time.time() - start_time)
         data = json.loads(resp)
+        # print(data)
         if 'Datapoints' in data:
             points = json.loads(data['Datapoints'])
             return points

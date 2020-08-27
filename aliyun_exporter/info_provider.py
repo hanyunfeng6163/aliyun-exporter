@@ -1,4 +1,5 @@
 import json
+import time
 from collections import Iterable
 
 from aliyunsdkcore.client import AcsClient
@@ -102,7 +103,18 @@ class InfoProvider():
         nested_handler = None
         gauge = None
         label_keys = None
-        for instance in oss2.BucketIterator(service):
+        try:
+            oss_bucket_iterator = oss2.BucketIterator(service, max_retries=2)
+        except Exception as e:
+            try:
+                print('connect timeout, now retry......')
+                time.sleep(5)
+                oss_bucket_iterator = oss2.BucketIterator(service, max_retries=2)
+            except Exception as e:
+                print('oss bucket iterator err')
+                print(e)
+                return GaugeMetricFamily('aliyun_meta_oss_info', '')
+        for instance in oss_bucket_iterator:
             try:
                 bucket = oss2.Bucket(auth, 'http://oss-cn-beijing.aliyuncs.com', instance.name, connect_timeout=10)
                 bucket_info = bucket.get_bucket_info()
@@ -118,6 +130,7 @@ class InfoProvider():
             except Exception as e:
                 try:
                     print('connect timeout, now retry...')
+                    time.sleep(2)
                     bucket = oss2.Bucket(auth, 'http://oss-cn-beijing.aliyuncs.com', instance.name, connect_timeout=10)
                     bucket_info = bucket.get_bucket_info()
                     instance_dict = {'name': bucket_info.name,
